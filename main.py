@@ -298,4 +298,4 @@ with gr.Blocks() as demo:
             fn=whisper, inputs=[audio, model_in], outputs=[output, output_file]
         )
 
-demo.launch(server_name="0.0.0.0", port=7860)
+demo.launch(server_name="0.0.0.0", server_port=7860)
