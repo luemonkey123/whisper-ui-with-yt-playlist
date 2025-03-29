@@ -249,7 +249,8 @@ def yt_playlist(playlist_url, model_size, progress=gr.Progress()):
 
 def innit(clear_out=True):
     ## Remove the temp_dir
-    shutil.rmtree(f"{temp_dir}")
+    if os.path.isdir(temp_dir):
+        shutil.rmtree(temp_dir)
     os.mkdir(f"./{temp_dir}")  ## Create the parent temp dir again
     os.mkdir(f"./{temp_dir}/audio")  ## Create the temp audio dir
     os.mkdir(f"./{temp_dir}/text")  ## Create the temp text dir
@@ -257,7 +258,8 @@ def innit(clear_out=True):
 
     if clear_out:
         ## Remove then make the output_dir
-        shutil.rmtree(f"{output_dir}")
+        if os.path.isdir(output_dir):
+            shutil.rmtree(output_dir)
         os.mkdir(f"{output_dir}")
 
 
