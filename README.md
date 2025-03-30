@@ -51,7 +51,8 @@ My mom wanted to transcribe some videos from YouTube, and she bought some subscr
 ## Todo
 
 - [ ] add other formats (SRT, etc)
-- [ ] get docker working and put image 
+- [ ] more transcription features
+- [ ] get docker working and put image
 
 ## Screenshots
 ![Screenshot of YouTube Video interface](images/screenshots/youtube-video.png)
