@@ -2,11 +2,11 @@
 import os
 import shutil
 
-import ffmpeg # type: ignore
-import gradio as gr # type: ignore
-import requests # type: ignore
-import yt_dlp # type: ignore
-from faster_whisper import WhisperModel # type: ignore
+import ffmpeg  # type: ignore
+import gradio as gr  # type: ignore
+import requests  # type: ignore
+import yt_dlp  # type: ignore
+from faster_whisper import WhisperModel  # type: ignore
 from icecream import ic  # type: ignore
 from mutagen.mp3 import MP3  # type: ignore
 
@@ -55,11 +55,9 @@ def download_audio(url, output_dir):
         return os.path.join(output_dir, f"{info['title']}.mp3")
 
 
-def whisper(audio, model_size, progress=gr.Progress(), call=False):
+def whisper_gen(audio, model_size):
+    content = []
     cumulative_duration = 0.0  ## Innit the starting duration
-    if not call:
-        innit()
-        progress(0, desc="Starting")
 
     ## Attempt conversion to .mp3
     if os.path.splitext(audio)[-1] != ".mp3":  ## If file extension is not mp3
@@ -79,26 +77,39 @@ def whisper(audio, model_size, progress=gr.Progress(), call=False):
         % (info.language, info.language_probability)
     )
 
-    with open(f"./{temp_dir}/text/out.txt", "w") as file: ## Open out dir
-        for segment in segments: ## Loop through the generater function
-            segment_duration = segment.end - segment.start ## The duration is the end - the start
-            cumulative_duration += segment_duration ## Add the duration to the cumulative
-            progress_value = cumulative_duration / audio_len ## Progress value
-            if not call: ## If function is not called, update the progress
-                progress(progress_value) 
+    with open(f"./{temp_dir}/text/out.txt", "w") as file:  ## Open out dir
+        for segment in segments:  ## Loop through the generater function
+            segment_duration = (
+                segment.end - segment.start
+            )  ## The duration is the end - the start
+            cumulative_duration += (
+                segment_duration  ## Add the duration to the cumulative
+            )
+            progress_value = cumulative_duration / audio_len  ## Progress value
+
             print("[%.2fs -> %.2fs] %s" % (segment.start, segment.end, segment.text))
             file.write("\n")
             file.write(segment.text)
-            yield (segment.text, progress_value) ## Yield for generator function
+            content.append(segment.text)
+            yield (segment.text, progress_value)  ## Yield for generator function
+        print("loop done")
         file.close()
 
-    with open(f"./{temp_dir}/text/out.txt", "r") as file: ## read the file back as a variable (prob not the most efficiant way)
-        content = file.read()
-    
-    innit(clear_out=False)
 
-    if not call:
-        return [content, f"./{temp_dir}/text/out.txt"] ## return the content and out.txt
+def file(audio, model_size, progress=gr.Progress()):
+    content = []
+
+    for segment in whisper_gen(audio, model_size):
+        content.append(segment[0])
+        progress(segment[1])
+
+    content_str = "\n".join(content)
+
+    with open(f"./{output_dir}/out.txt", "w") as file:
+        file.write(content_str)
+        file.close
+
+    return (content_str, f"./{output_dir}/out.txt")
 
 
 def get_video_info(video_url):
@@ -127,12 +138,12 @@ def download_thumbnail(thumbnail_url, save_path):
 
 
 def yt(
-    url, model_size, progress=gr.Progress(), call=False
+    url, model_size, progress=gr.Progress()
 ):  ## call is being called by another function, and not used just natively?
     ## Innit folders and progress
-    if not call:
-        innit()
-        progress(0, desc="Downloading and Loading Model")  ## Inform user of start
+
+    innit()
+    progress(0, desc="Downloading and Loading Model")  ## Inform user of start
 
     info = get_video_info(url)  ## Get Video Info (video title, thumbnail url)
 
@@ -149,29 +160,46 @@ def yt(
     )  ## Rename the file to audio.mp3
 
     ## Whisper Loop (generator)
-    for segment in whisper(
-        f"./{temp_dir}/audio/audio.mp3", model_size, call=True
+    for segment in whisper_gen(
+        f"./{temp_dir}/audio/audio.mp3", model_size
     ):  ## Looping through
-        if not call:  ## Don't update progress if being called by another function
-            progress(segment[1])
+        progress(segment[1])
 
         content.append(segment[0])  ## Append the segment to the content list
-        yield segment  ## Generator; yield
 
-    content = "\n".join(
+    print("whisper")
+    content_str = "\n".join(
         content
     )  ## Join the content list into a str separated by newlines
 
-    innit(clear_out=False)  ## Innit w/o bothering the output files
-
     ## Return if not being called
-    if not call:
-        return [
-            content,
-            f"./{temp_dir}/text/out.txt",
-            info[0],
-            f"./{temp_dir}/thumbnail/test",
-        ]
+    print("return")
+    return [
+        content_str,
+        f"./{temp_dir}/text/out.txt",
+        info[0],
+        f"./{temp_dir}/thumbnail/test",
+    ]
+
+
+def yt_gen(url, model_size):
+    info = get_video_info(url)  ## Get Video Info (video title, thumbnail url)
+
+    download_thumbnail(
+        info[1], f"./{temp_dir}/thumbnail/test"
+    )  # Get the thumbnail ([1] is the thumbnail url)
+    download_audio(url, f"./{temp_dir}/audio")  ## Get the audio of the video
+
+    name = os.listdir(f"./{temp_dir}/audio")  ## Get the file name
+    os.rename(
+        f"./{temp_dir}/audio/{name[0]}", f"./{temp_dir}/audio/audio.mp3"
+    )  ## Rename the file to audio.mp3
+
+    ## Whisper Loop (generator)
+    for segment in whisper_gen(
+        f"./{temp_dir}/audio/audio.mp3", model_size
+    ):  ## Looping through
+        yield segment
 
 
 def get_playlist_video_urls(playlist_url):
@@ -194,8 +222,6 @@ def yt_playlist(playlist_url, model_size, progress=gr.Progress()):
     progress(0, desc="Getting URLS")
     vid_urls = get_playlist_video_urls(playlist_url)
 
-    progress(0, desc="Downloading")
-
     ## Innit progress vars
     total_progress_per_vid = 1 / len(vid_urls)
     cumulative_progress = 0
@@ -204,8 +230,12 @@ def yt_playlist(playlist_url, model_size, progress=gr.Progress()):
     for counter in range(len(vid_urls)):
         content = []  ## Innit the content list
 
+        progress(
+            counter * total_progress_per_vid, desc=f"Downloading Video {counter + 1}"
+        )
+
         ## Loop through the yt generator function (which itself loops through the whisper generator function)
-        for i in yt(vid_urls[counter], model_size, call=True):
+        for i in yt_gen(vid_urls[counter], model_size):
             vid_progress = i[1]  ## Getting the per vid progress
 
             ## vid_progress * total_progress_per_vid gets the total progress per vid as of now
@@ -291,11 +321,11 @@ with gr.Blocks() as demo:
     with gr.Tab("File"):
         audio = gr.Audio(label="File", type="filepath")
         model_in = gr.Dropdown(label="Model", choices=models)
-        output = gr.Textbox(label="Transcribed Text")
+        output = gr.Textbox(label="Transcribed Text", show_copy_button=True)
         output_file = gr.File(label="Downloadable File Output")
         t_button = gr.Button("Transcribe")
-        t_button.click(
-            fn=whisper, inputs=[audio, model_in], outputs=[output, output_file]
-        )
+        t_button.click(file, inputs=[audio, model_in], outputs=[output, output_file])
 
-demo.launch(server_name="0.0.0.0", server_port=7860)
+demo.queue()
+
+demo.launch()
