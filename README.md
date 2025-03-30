@@ -48,9 +48,10 @@ My mom wanted to transcribe some videos from YouTube, and she bought some subscr
    python3 main.py
    ```
 
-## Roadmap
+## Todo
 
-- [ ] test
+- [ ] add other formats (SRT, etc)
+- [ ] get docker working and put image 
 
 ## Screenshots
 ![Screenshot of YouTube Video interface](images/screenshots/youtube-video.png)
