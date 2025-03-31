@@ -88,7 +88,7 @@ def download_audio(url, output_dir):
 
 
 def whisper_gen(audio, model_size):
-    content = []
+    content = [] ## Init initial content list
     cumulative_duration = 0.0  ## Innit the starting duration
 
     ## Attempt conversion to .mp3
@@ -97,7 +97,7 @@ def whisper_gen(audio, model_size):
             print("Conversion to mp3 failed")
             return -1
 
-    audio_len = get_audio_len(audio)
+    audio_len = get_audio_len(audio) ## get the length of the audio
 
     model = WhisperModel(
         model_size, device="cpu", compute_type="int8"
@@ -121,11 +121,9 @@ def whisper_gen(audio, model_size):
 
             print("[%.2fs -> %.2fs] %s" % (segment.start, segment.end, segment.text))
             file.write("\n")
-            file.write(segment.text)
-            content.append(segment.text)
+            file.write(segment.text) ## Write the text to the file
+            content.append(segment.text) ## Append the text to content
             yield (segment, progress_value, info.language)  ## Yield for generator function
-        
-        file.close()
 
 
 def file(audio, model_size, file_type, progress=gr.Progress()):
@@ -253,12 +251,6 @@ def yt(url, model_size, file_type, progress=gr.Progress()):
     
     progress(0, desc="Downloading and Loading Model")  ## Inform user of start
 
-    info = get_video_info(url)  ## Get Video Info (video title, thumbnail url)
-
-    download_thumbnail(
-        info[1], f"./{temp_dir}/thumbnail/test"
-    )  # Get the thumbnail ([1] is the thumbnail url)
-    
     for out in yt_gen(url, model_size):
         language = out[2]
         
@@ -276,12 +268,20 @@ def yt(url, model_size, file_type, progress=gr.Progress()):
         with open(f"./{output_dir}/out.txt", "w") as file:
             file.write(content_str)
         
-        return (content_str, f"./{output_dir}/out.txt", info[0], f"./{temp_dir}/thumbnail/test")
+        return (content_str, f"./{output_dir}/out.txt")
     elif file_type == "srt":
         generate_subtitle_file(language, srt_list)
         
-        return (content_str, f"./{output_dir}/out-sub.{language}.srt", info[0], f"./{temp_dir}/thumbnail/test")
+        return (content_str, f"./{output_dir}/out-sub.{language}.srt")
 
+def get_yt_meta(url):
+    info = get_video_info(url)  ## Get Video Info (video title, thumbnail url)
+
+    download_thumbnail(
+        info[1], f"./{temp_dir}/thumbnail/test"
+    )  # Get the thumbnail ([1] is the thumbnail url)
+    
+    return (info[0], f"./{temp_dir}/thumbnail/test")
 
 def get_playlist_video_urls(playlist_url):
     ydl_opts = {
@@ -296,7 +296,6 @@ def get_playlist_video_urls(playlist_url):
             video_url = f"https://www.youtube.com/watch?v={entry.get('id')}"
             video_urls.append(video_url)
         return video_urls
-
 
 def yt_playlist(playlist_url, model_size, file_type, progress=gr.Progress()):
     innit()
@@ -399,10 +398,13 @@ with gr.Blocks() as demo:
         output = gr.Textbox(label="Transcribed Text")
         output_file = gr.File(label="Downloadable File Output")
         t_button = gr.Button("Transcribe")
+        
+        link.change(get_yt_meta, inputs=[link], outputs=[tb_title, img_thumbnail])
+        
         t_button.click(
             fn=yt,
             inputs=[link, model_in, output_format],
-            outputs=[output, output_file, tb_title, img_thumbnail],
+            outputs=[output, output_file],
         )
     with gr.Tab("Youtube Playlist"):
         link = gr.Textbox(label="YT Playlist Link")
