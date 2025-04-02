@@ -12,7 +12,9 @@ My mom wanted to transcribe some videos from YouTube, and she bought some subscr
 
 - YouTube Playlist transcription
 - YouTube Video transcription
+   - gets title and thumbnail
 - Local File transcription
+- txt and srt formats
 
 ## Install
 
@@ -50,7 +52,8 @@ My mom wanted to transcribe some videos from YouTube, and she bought some subscr
 
 ## Todo
 
-- [ ] add other formats (SRT, etc)
+- [x] add SRT
+- [ ] add more formats
 - [ ] more transcription features
 - [ ] get docker working and put image
 
