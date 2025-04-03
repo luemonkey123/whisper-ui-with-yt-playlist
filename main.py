@@ -10,19 +10,115 @@ from faster_whisper import WhisperModel  # type: ignore
 from icecream import ic  # type: ignore
 from mutagen.mp3 import MP3  # type: ignore
 import math
+import pysubs2
+
 
 models = ["small", "small.en", "medium", "medium.en", "large-v3", "turbo", "tiny"]
 temp_dir = "temp"
 output_dir = "output-files"
-
 languages = [
-    'Auto Detect','en', 'zh', 'de', 'es', 'ru', 'ko', 'fr', 'ja', 'pt', 'tr', 'pl', 'ca', 'nl', 'ar', 'sv', 'it', 'id', 'hi', 'fi',
-    'vi', 'he', 'uk', 'el', 'ms', 'cs', 'ro', 'da', 'hu', 'ta', 'no', 'th', 'ur', 'hr', 'bg', 'lt', 'la', 'mi', 'ml',
-    'cy', 'sk', 'te', 'fa', 'lv', 'bn', 'sr', 'az', 'sl', 'kn', 'et', 'mk', 'br', 'eu', 'is', 'hy', 'ne', 'mn', 'bs',
-    'kk', 'sq', 'sw', 'gl', 'mr', 'pa', 'si', 'km', 'sn', 'yo', 'so', 'af', 'oc', 'ka', 'be', 'tg', 'sd', 'gu', 'am',
-    'yi', 'lo', 'uz', 'fo', 'ht', 'ps', 'tk', 'nn', 'mt', 'sa', 'lb', 'my', 'bo', 'tl', 'mg', 'as', 'tt', 'haw', 'ln',
-    'ha', 'ba', 'jw', 'su'
+    "Auto Detect",
+    "en",
+    "zh",
+    "de",
+    "es",
+    "ru",
+    "ko",
+    "fr",
+    "ja",
+    "pt",
+    "tr",
+    "pl",
+    "ca",
+    "nl",
+    "ar",
+    "sv",
+    "it",
+    "id",
+    "hi",
+    "fi",
+    "vi",
+    "he",
+    "uk",
+    "el",
+    "ms",
+    "cs",
+    "ro",
+    "da",
+    "hu",
+    "ta",
+    "no",
+    "th",
+    "ur",
+    "hr",
+    "bg",
+    "lt",
+    "la",
+    "mi",
+    "ml",
+    "cy",
+    "sk",
+    "te",
+    "fa",
+    "lv",
+    "bn",
+    "sr",
+    "az",
+    "sl",
+    "kn",
+    "et",
+    "mk",
+    "br",
+    "eu",
+    "is",
+    "hy",
+    "ne",
+    "mn",
+    "bs",
+    "kk",
+    "sq",
+    "sw",
+    "gl",
+    "mr",
+    "pa",
+    "si",
+    "km",
+    "sn",
+    "yo",
+    "so",
+    "af",
+    "oc",
+    "ka",
+    "be",
+    "tg",
+    "sd",
+    "gu",
+    "am",
+    "yi",
+    "lo",
+    "uz",
+    "fo",
+    "ht",
+    "ps",
+    "tk",
+    "nn",
+    "mt",
+    "sa",
+    "lb",
+    "my",
+    "bo",
+    "tl",
+    "mg",
+    "as",
+    "tt",
+    "haw",
+    "ln",
+    "ha",
+    "ba",
+    "jw",
+    "su",
 ]
+file_formats = ("txt", "srt", "vtt")
 
 
 def format_time(seconds):
@@ -36,6 +132,7 @@ def format_time(seconds):
     formatted_time = f"{hours:02d}:{minutes:02d}:{seconds:01d},{milliseconds:03d}"
 
     return formatted_time
+
 
 def convert_to_mp3(input_file, output_file):
     """Convert any audio file to MP3 format"""
@@ -51,6 +148,13 @@ def convert_to_mp3(input_file, output_file):
         print("Error:", e)
         return False
 
+
+def srt_to_vtt(input_file, output_file):
+    file = pysubs2.load(input_file, encoding="utf-8")
+    file.save(output_file, format_="vtt")
+    os.remove(input_file)
+
+
 def generate_subtitle_file(language, srt_list, index=0):
     if index == 0:
         subtitle_file = f"./{output_dir}/out-sub.{language}.srt"
@@ -64,12 +168,13 @@ def generate_subtitle_file(language, srt_list, index=0):
         text += f"{segment_start} --> {segment_end} \n"
         text += f"{srt_list[index][0]} \n"
         text += "\n"
-    
+
     f = open(subtitle_file, "w")
     f.write(text)
     f.close()
 
     return subtitle_file
+
 
 def get_audio_len(path):
     ## Get the length of an MP3 file w/ mutagen
@@ -97,7 +202,7 @@ def download_audio(url, output_dir):
 
 
 def whisper_gen(audio, model_size, language=None):
-    content = [] ## Init initial content list
+    content = []  ## Init initial content list
     cumulative_duration = 0.0  ## Innit the starting duration
 
     ## Attempt conversion to .mp3
@@ -106,16 +211,20 @@ def whisper_gen(audio, model_size, language=None):
             print("Conversion to mp3 failed")
             return -1
 
-    audio_len = get_audio_len(audio) ## get the length of the audio
+    audio_len = get_audio_len(audio)  ## get the length of the audio
 
     model = WhisperModel(
         model_size, device="cpu", compute_type="int8"
     )  ## Init whisper with settings and model size
     if language is None:
-        segments, info = model.transcribe(audio, beam_size=5)  ## Get settings and segments
+        segments, info = model.transcribe(
+            audio, beam_size=5
+        )  ## Get settings and segments
     else:
-        segments, info = model.transcribe(audio, beam_size=5, language=language)  ## Get settings and segments with language
-    
+        segments, info = model.transcribe(
+            audio, beam_size=5, language=language
+        )  ## Get settings and segments with language
+
     ic(
         "Detected language '%s' with probability %f"
         % (info.language, info.language_probability)
@@ -133,21 +242,25 @@ def whisper_gen(audio, model_size, language=None):
 
             print("[%.2fs -> %.2fs] %s" % (segment.start, segment.end, segment.text))
             file.write("\n")
-            file.write(segment.text) ## Write the text to the file
-            content.append(segment.text) ## Append the text to content
-            yield (segment, progress_value, info.language)  ## Yield for generator function
+            file.write(segment.text)  ## Write the text to the file
+            content.append(segment.text)  ## Append the text to content
+            yield (
+                segment,
+                progress_value,
+                info.language,
+            )  ## Yield for generator function
 
 
-def file(audio, model_size, file_type, progress=gr.Progress()):
+def file(audio, model_size, file_type, language, progress=gr.Progress()):
     innit()
-    
+
     if language == "Auto Detect":
         language = None
-    
+
     content = []
 
     srt_list = []
-    
+
     for output in whisper_gen(audio, model_size, language):
         language = output[2]
         segment = output[0]
@@ -160,12 +273,20 @@ def file(audio, model_size, file_type, progress=gr.Progress()):
     if file_type == "txt":
         with open(f"./{output_dir}/out.txt", "w") as file:
             file.write(content_str)
-        
+
         return (content_str, f"./{output_dir}/out.txt")
     elif file_type == "srt":
         generate_subtitle_file(language, srt_list)
-        
+
         return (content_str, f"./{output_dir}/out-sub.{language}.srt")
+    elif file_type == "vtt":
+        generate_subtitle_file(language, srt_list)
+        srt_to_vtt(
+            f"./{output_dir}/out-sub.{language}.srt",
+            f"./{output_dir}/out-sub.{language}.vtt",
+        )
+
+        return (content_str, f"./{output_dir}/out-sub.{language}.vtt")
 
 
 def get_video_info(video_url):
@@ -192,51 +313,6 @@ def download_thumbnail(thumbnail_url, save_path):
         with open(save_path, "wb") as f:
             f.write(response.content)  ## Write the content to the save path
 
-"""
-def yt(
-    url, model_size, progress=gr.Progress()
-):  ## call is being called by another function, and not used just natively?
-    ## Innit folders and progress
-
-    innit()
-    progress(0, desc="Downloading and Loading Model")  ## Inform user of start
-
-    info = get_video_info(url)  ## Get Video Info (video title, thumbnail url)
-
-    download_thumbnail(
-        info[1], f"./{temp_dir}/thumbnail/test"
-    )  # Get the thumbnail ([1] is the thumbnail url)
-    download_audio(url, f"./{temp_dir}/audio")  ## Get the audio of the video
-
-    content = []  ## Init content list
-
-    name = os.listdir(f"./{temp_dir}/audio")  ## Get the file name
-    os.rename(
-        f"./{temp_dir}/audio/{name[0]}", f"./{temp_dir}/audio/audio.mp3"
-    )  ## Rename the file to audio.mp3
-
-    ## Whisper Loop (generator)
-    for out in whisper_gen(
-        f"./{temp_dir}/audio/audio.mp3", model_size
-    ):  ## Looping through
-        progress(out[1])
-        segment = out[0]
-        content.append(segment.text)  ## Append the segment to the content list
-
-    print("whisper")
-    content_str = "\n".join(
-        content
-    )  ## Join the content list into a str separated by newlines
-
-    ## Return if not being called
-    print("return")
-    return [
-        content_str,
-        f"./{temp_dir}/text/out.txt",
-        info[0],
-        f"./{temp_dir}/thumbnail/test",
-    ]
-"""
 
 def yt_gen(url, model_size, language=None):
     info = get_video_info(url)  ## Get Video Info (video title, thumbnail url)
@@ -257,40 +333,41 @@ def yt_gen(url, model_size, language=None):
     ):  ## Looping through
         yield out
 
+
 def yt(url, model_size, file_type, language, progress=gr.Progress()):
     innit()
-    
+
     content = []
-    
+
     srt_list = []
-    
+
     if language == "Auto Select":
         language = None
-    
+
     progress(0, desc="Downloading and Loading Model")  ## Inform user of start
 
     for out in yt_gen(url, model_size, language):
         language = out[2]
-        
+
         segment = out[0]
-        
+
         content.append(segment.text)
         srt_list.append([segment.text, segment.start, segment.end])
-        
+
         progress(out[1])
-    
-    
+
     content_str = "\n".join(content)
 
     if file_type == "txt":
         with open(f"./{output_dir}/out.txt", "w") as file:
             file.write(content_str)
-        
+
         return (content_str, f"./{output_dir}/out.txt")
     elif file_type == "srt":
         generate_subtitle_file(language, srt_list)
-        
+
         return (content_str, f"./{output_dir}/out-sub.{language}.srt")
+
 
 def get_yt_meta(url):
     info = get_video_info(url)  ## Get Video Info (video title, thumbnail url)
@@ -298,8 +375,9 @@ def get_yt_meta(url):
     download_thumbnail(
         info[1], f"./{temp_dir}/thumbnail/test"
     )  # Get the thumbnail ([1] is the thumbnail url)
-    
+
     return (info[0], f"./{temp_dir}/thumbnail/test")
+
 
 def get_playlist_video_urls(playlist_url):
     ydl_opts = {
@@ -315,12 +393,13 @@ def get_playlist_video_urls(playlist_url):
             video_urls.append(video_url)
         return video_urls
 
+
 def yt_playlist(playlist_url, model_size, file_type, language, progress=gr.Progress()):
     innit()
-    
+
     if language == "Auto Detect":
         language = None
-    
+
     ## Getting URLS
     progress(0, desc="Getting URLS")
     vid_urls = get_playlist_video_urls(playlist_url)
@@ -330,7 +409,7 @@ def yt_playlist(playlist_url, model_size, file_type, language, progress=gr.Progr
     cumulative_progress = 0
 
     srt_list = []
-    
+
     ## Looping through the vids
     for counter in range(len(vid_urls)):
         content = []  ## Innit the content list
@@ -342,7 +421,7 @@ def yt_playlist(playlist_url, model_size, file_type, language, progress=gr.Progr
         ## Loop through the yt generator function (which itself loops through the whisper generator function)
         for i in yt_gen(vid_urls[counter], model_size, language):
             language = i[2]
-            
+
             vid_progress = i[1]  ## Getting the per vid progress
 
             ## vid_progress * total_progress_per_vid gets the total progress per vid as of now
@@ -351,7 +430,7 @@ def yt_playlist(playlist_url, model_size, file_type, language, progress=gr.Progr
                 vid_progress * total_progress_per_vid + counter * total_progress_per_vid
             )
             progress(cumulative_progress, desc=f"Transcribing Video {counter + 1}")
-            
+
             segment = i[0]
             srt_list.append([segment.text, segment.start, segment.end])
 
@@ -413,39 +492,50 @@ with gr.Blocks() as demo:
     with gr.Tab("YouTube"):
         link = gr.Textbox(label="YT Video Link")
         model_in = gr.Dropdown(label="Model", choices=models)
-        output_format = gr.Dropdown(label="Output File Format", choices=("txt", "srt"))
+        output_format = gr.Dropdown(label="Output File Format", choices=file_formats)
+        language = gr.Dropdown(label="Language", choices=languages)
         tb_title = gr.Label(label="Youtube Title")
         img_thumbnail = gr.Image(label="Youtube Thumbnail")
         output = gr.Textbox(label="Transcribed Text")
         output_file = gr.File(label="Downloadable File Output")
         t_button = gr.Button("Transcribe")
-        
+
         link.change(get_yt_meta, inputs=[link], outputs=[tb_title, img_thumbnail])
-        
+
         t_button.click(
             fn=yt,
-            inputs=[link, model_in, output_format],
+            inputs=[link, model_in, output_format, language],
             outputs=[output, output_file],
         )
     with gr.Tab("Youtube Playlist"):
         link = gr.Textbox(label="YT Playlist Link")
         model_in = gr.Dropdown(label="Model", choices=models)
-        output_format = gr.Dropdown(label="Output File Format", choices=("txt", "srt"))
-        language = gr.Dropdown(label="Language", choices=languages)
+        with gr.Row():
+            output_format = gr.Dropdown(
+                label="Output File Format", choices=file_formats
+            )
+            language = gr.Dropdown(label="Language", choices=languages)
         output_zip = gr.File(label="Downloadable Zip Output")
         output_files = gr.File(label="Downloadable Files Output")
         t_button = gr.Button("Transcribe")
         t_button.click(
-            fn=yt_playlist, inputs=[link, model_in, output_format, language], outputs=[output_zip, output_files]
+            fn=yt_playlist,
+            inputs=[link, model_in, output_format, language],
+            outputs=[output_zip, output_files],
         )
     with gr.Tab("File"):
         audio = gr.Audio(label="File", type="filepath")
         model_in = gr.Dropdown(label="Model", choices=models)
-        output_format = gr.Dropdown(label="Output File Format", choices=("txt", "srt"))
+        output_format = gr.Dropdown(label="Output File Format", choices=file_formats)
+        language = gr.Dropdown(label="Language", choices=languages)
         output = gr.Textbox(label="Transcribed Text", show_copy_button=True)
         output_file = gr.File(label="Downloadable File Output")
         t_button = gr.Button("Transcribe")
-        t_button.click(file, inputs=[audio, model_in, output_format], outputs=[output, output_file])
+        t_button.click(
+            file,
+            inputs=[audio, model_in, output_format, language],
+            outputs=[output, output_file],
+        )
 
 demo.queue()
 
