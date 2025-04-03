@@ -165,11 +165,17 @@ def srt_to_vtt(input_file, output_file):
     os.remove(input_file)
 
 
-def generate_subtitle_file(language, srt_list, index=0):
+def generate_subtitle_file(language, srt_list, index=0, name=False):
     if index == 0:
-        subtitle_file = f"./{output_dir}/out-sub.{language}.srt"
+        if name:
+            subtitle_file = f"./{output_dir}/{name}.srt"
+        else:
+            subtitle_file = f"./{output_dir}/out-sub.{language}.srt"
     else:
-        subtitle_file = f"./{output_dir}/out-sub{index}.{language}.srt"
+        if name:
+            subtitle_file = f"./{output_dir}/{name}.srt"
+        else:
+            subtitle_file = f"./{output_dir}/out-sub{index}.{language}.srt"
     text = ""
     for index in range(len(srt_list)):
         segment_start = format_time(srt_list[index][1])
@@ -346,14 +352,16 @@ def yt_gen(url, model_size, language=None):
         yield out
 
 
-def yt(url, model_size, file_type, language, progress=gr.Progress()):
+def yt(url, model_size, file_type, language, use_name, progress=gr.Progress()):
     innit()
 
     content = []
 
     srt_list = []
 
-    if language == "Auto Select":
+    video_name = get_video_info(url)[0]
+
+    if language == "Auto Detect":
         language = None
 
     progress(0, desc="Downloading and Loading Model")  ## Inform user of start
@@ -371,23 +379,46 @@ def yt(url, model_size, file_type, language, progress=gr.Progress()):
     content_str = "\n".join(content)
 
     if file_type == "txt":
-        with open(f"./{output_dir}/out.txt", "w") as file:
-            file.write(content_str)
+        if not use_name:
+            with open(f"./{output_dir}/out.txt", "w") as file:
+                file.write(content_str)
 
-        return (content_str, f"./{output_dir}/out.txt")
+            return (content_str, f"./{output_dir}/out.txt")
+        else:
+            with open(f"./{output_dir}/{video_name}.txt", "w") as file:
+                file.write(content_str)
+
+            return (content_str, f"./{output_dir}/{video_name}.txt")
+
     elif file_type == "srt":
-        generate_subtitle_file(language, srt_list)
+        if not use_name:
+            generate_subtitle_file(language, srt_list)
 
-        return (content_str, f"./{output_dir}/out-sub.{language}.srt")
+            return (content_str, f"./{output_dir}/out-sub.{language}.srt")
+        else:
+            generate_subtitle_file(language, srt_list, name=video_name)
+
+            return (content_str, f"./{output_dir}/{video_name}.srt")
 
     elif file_type == "vtt":
         generate_subtitle_file(language, srt_list)
-        srt_to_vtt(
-            f"./{output_dir}/out-sub.{language}.srt",
-            f"./{output_dir}/out-sub.{language}.vtt",
-        )
 
-        return (content_str, f"./{output_dir}/out-sub.{language}.vtt")
+        ic(use_name)
+
+        if not use_name:
+            srt_to_vtt(
+                f"./{output_dir}/out-sub.{language}.srt",
+                f"./{output_dir}/out-sub.{language}.vtt",
+            )
+
+            return (content_str, f"./{output_dir}/out-sub.{language}.vtt")
+        else:
+            srt_to_vtt(
+                f"./{output_dir}/out-sub.{language}.srt",
+                f"./{output_dir}/{video_name}.vtt",
+            )
+
+            return (content_str, f"./{output_dir}/{video_name}.vtt")
 
 
 def get_yt_meta(url):
@@ -535,6 +566,11 @@ with gr.Blocks() as demo:
                 label="Output File Format", choices=file_formats
             )
             language = gr.Dropdown(label="Language", choices=languages)
+            use_name = gr.Checkbox(
+                value=True,
+                label="Use Original File Name",
+                info="If checked, the outputed subtitles file will be named the video name",
+            )
 
         tb_title = gr.Label(label="Youtube Title")
         img_thumbnail = gr.Image(label="Youtube Thumbnail")
@@ -549,7 +585,7 @@ with gr.Blocks() as demo:
 
         t_button.click(
             fn=yt,
-            inputs=[link, model_in, output_format, language],
+            inputs=[link, model_in, output_format, language, use_name],
             outputs=[output, output_file],
         )
     with gr.Tab("Youtube Playlist"):
