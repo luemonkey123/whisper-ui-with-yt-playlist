@@ -133,6 +133,18 @@ def format_time(seconds):
     return formatted_time
 
 
+
+def get_playlist_title(url):
+    try:
+        ydl_opts = {'quiet': True}  # Suppress output
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            return info.get('title', None)
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return None
+
+
 def convert_to_mp3(input_file, output_file):
     """Convert any audio file to MP3 format"""
     try:
@@ -274,10 +286,12 @@ def file(audio, model_size, file_type, language, progress=gr.Progress()):
             file.write(content_str)
 
         return (content_str, f"./{output_dir}/out.txt")
+
     elif file_type == "srt":
         generate_subtitle_file(language, srt_list)
 
         return (content_str, f"./{output_dir}/out-sub.{language}.srt")
+
     elif file_type == "vtt":
         generate_subtitle_file(language, srt_list)
         srt_to_vtt(
@@ -366,6 +380,15 @@ def yt(url, model_size, file_type, language, progress=gr.Progress()):
         generate_subtitle_file(language, srt_list)
 
         return (content_str, f"./{output_dir}/out-sub.{language}.srt")
+    
+    elif file_type == "vtt":
+        generate_subtitle_file(language, srt_list)
+        srt_to_vtt(
+            f"./{output_dir}/out-sub.{language}.srt",
+            f"./{output_dir}/out-sub.{language}.vtt",
+        )
+
+        return (content_str, f"./{output_dir}/out-sub.{language}.vtt")
 
 
 def get_yt_meta(url):
@@ -419,7 +442,8 @@ def yt_playlist(playlist_url, model_size, file_type, language, progress=gr.Progr
 
         ## Loop through the yt generator function (which itself loops through the whisper generator function)
         for i in yt_gen(vid_urls[counter], model_size, language):
-            language = i[2]
+            if language is None:
+                language = i[2]
 
             vid_progress = i[1]  ## Getting the per vid progress
 
@@ -438,7 +462,9 @@ def yt_playlist(playlist_url, model_size, file_type, language, progress=gr.Progr
         content_str = "\n".join(
             content
         )  ## Turn the content list into a content str w/ newlines (\n)
-
+        
+        ic(counter, language)
+        
         if file_type == "txt":
             ## Write content to a (new) txt file
             with open(f"./output-files/out{counter}.txt", "w") as file:
@@ -446,7 +472,20 @@ def yt_playlist(playlist_url, model_size, file_type, language, progress=gr.Progr
                 file.close()
         elif file_type == "srt":
             generate_subtitle_file(language, srt_list, counter)
-
+        
+        elif file_type == "vtt":
+            generate_subtitle_file(language, srt_list, counter)
+            if counter > 0:
+                srt_to_vtt(
+                    f"./{output_dir}/out-sub{counter}.{language}.srt",
+                    f"./{output_dir}/out-sub{counter}.{language}.vtt",
+                )
+            else:
+                srt_to_vtt(
+                    f"./{output_dir}/out-sub.{language}.srt",
+                    f"./{output_dir}/out-sub.{language}.vtt",
+                )
+            
     shutil.make_archive(
         f"./{output_dir}/out", "zip", output_dir
     )  ## Make zip out of output files
@@ -490,13 +529,19 @@ innit()
 with gr.Blocks() as demo:
     with gr.Tab("YouTube"):
         link = gr.Textbox(label="YT Video Link")
-        model_in = gr.Dropdown(label="Model", choices=models)
-        output_format = gr.Dropdown(label="Output File Format", choices=file_formats)
-        language = gr.Dropdown(label="Language", choices=languages)
+        
+        with gr.Row():
+            model_in = gr.Dropdown(label="Model", choices=models)
+            output_format = gr.Dropdown(label="Output File Format", choices=file_formats)
+            language = gr.Dropdown(label="Language", choices=languages)
+        
         tb_title = gr.Label(label="Youtube Title")
         img_thumbnail = gr.Image(label="Youtube Thumbnail")
-        output = gr.Textbox(label="Transcribed Text")
-        output_file = gr.File(label="Downloadable File Output")
+        
+        with gr.Row():
+            output = gr.Textbox(label="Transcribed Text")
+            output_file = gr.File(label="Downloadable File Output")
+        
         t_button = gr.Button("Transcribe")
 
         link.change(get_yt_meta, inputs=[link], outputs=[tb_title, img_thumbnail])
@@ -509,13 +554,17 @@ with gr.Blocks() as demo:
     with gr.Tab("Youtube Playlist"):
         link = gr.Textbox(label="YT Playlist Link")
         model_in = gr.Dropdown(label="Model", choices=models)
+        
         with gr.Row():
             output_format = gr.Dropdown(
                 label="Output File Format", choices=file_formats
             )
             language = gr.Dropdown(label="Language", choices=languages)
-        output_zip = gr.File(label="Downloadable Zip Output")
-        output_files = gr.File(label="Downloadable Files Output")
+        
+        with gr.Row():
+            output_zip = gr.File(label="Downloadable Zip Output")
+            output_files = gr.File(label="Downloadable Files Output")
+            
         t_button = gr.Button("Transcribe")
         t_button.click(
             fn=yt_playlist,
@@ -524,11 +573,16 @@ with gr.Blocks() as demo:
         )
     with gr.Tab("File"):
         audio = gr.Audio(label="File", type="filepath")
-        model_in = gr.Dropdown(label="Model", choices=models)
-        output_format = gr.Dropdown(label="Output File Format", choices=file_formats)
-        language = gr.Dropdown(label="Language", choices=languages)
-        output = gr.Textbox(label="Transcribed Text", show_copy_button=True)
-        output_file = gr.File(label="Downloadable File Output")
+        
+        with gr.Row():
+            model_in = gr.Dropdown(label="Model", choices=models)
+            output_format = gr.Dropdown(label="Output File Format", choices=file_formats)
+            language = gr.Dropdown(label="Language", choices=languages)
+            
+        with gr.Row():
+            output = gr.Textbox(label="Transcribed Text", show_copy_button=True)
+            output_file = gr.File(label="Downloadable File Output")
+        
         t_button = gr.Button("Transcribe")
         t_button.click(
             file,
