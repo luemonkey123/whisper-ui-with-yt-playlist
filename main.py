@@ -1,17 +1,16 @@
 ## Many imports
+import math
 import os
 import shutil
 
 import ffmpeg  # type: ignore
 import gradio as gr  # type: ignore
+import pysubs2
 import requests  # type: ignore
 import yt_dlp  # type: ignore
 from faster_whisper import WhisperModel  # type: ignore
 from icecream import ic  # type: ignore
 from mutagen.mp3 import MP3  # type: ignore
-import math
-import pysubs2
-
 
 models = ["small", "small.en", "medium", "medium.en", "large-v3", "turbo", "tiny"]
 temp_dir = "temp"
